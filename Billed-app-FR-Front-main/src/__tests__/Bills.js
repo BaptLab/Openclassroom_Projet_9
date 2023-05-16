@@ -8,10 +8,12 @@ import { bills } from "../fixtures/bills.js";
 import { ROUTES_PATH } from "../constants/routes.js";
 import { localStorageMock } from "../__mocks__/localStorage.js";
 import userEvent from "@testing-library/user-event";
-
+import mockStore from "../__mocks__/store";
 import router from "../app/Router.js";
 
-//Va sur la page employee
+jest.mock("../app/store", () => mockStore);
+
+//Va sur la page employee avec data mockée
 function setEmployeePage() {
   Object.defineProperty(window, "localStorage", { value: localStorageMock });
   window.localStorage.setItem(
@@ -28,12 +30,12 @@ function setEmployeePage() {
 }
 
 describe("Given I am connected as an employee", () => {
-  beforeEach(() => {
-    //set-up session employee avant chaque test
-    setEmployeePage();
-  });
-
   describe("When I am on Bills Page", () => {
+    beforeEach(() => {
+      jest.spyOn(mockStore, "bills");
+      setEmployeePage();
+    });
+
     test("Then bill icon in vertical layout should be highlighted", async () => {
       window.onNavigate(ROUTES_PATH.Bills);
       await waitFor(() => screen.getByTestId("icon-window"));
@@ -52,30 +54,44 @@ describe("Given I am connected as an employee", () => {
       expect(dates).toEqual(datesSorted);
     });
 
-    /*Tests ajoutés*/
+    describe("When an error occurs on API", () => {
+      test("fetches bills from an API and fails with 404 message error", async () => {
+        mockStore.bills.mockImplementationOnce(() => {
+          return {
+            list: () => {
+              return Promise.reject(new Error("Erreur 404"));
+            },
+          };
+        });
+        window.onNavigate(ROUTES_PATH.Bills);
+        await new Promise(process.nextTick);
+        const message = await screen.getByText(/Erreur 404/);
+        expect(message).toBeTruthy();
+      });
 
-    //API tests
-    describe("When the API is being called", () => {
-      test("Then the data should be correct & complete", {});
-
-      test('Then an error 404 should appear if the promise return an "Error 404"', () => {});
-
-      test('Then an error 404 should appear if the promise return an "Error 500"', () => {});
+      test("fetches messages from an API and fails with 500 message error", async () => {
+        mockStore.bills.mockImplementationOnce(() => {
+          return {
+            list: () => {
+              return Promise.reject(new Error("Erreur 500"));
+            },
+          };
+        });
+        window.onNavigate(ROUTES_PATH.Bills);
+        await new Promise(process.nextTick);
+        const message = await screen.getByText(/Erreur 500/);
+        expect(message).toBeTruthy();
+      });
     });
 
-    //bug a corriger avec mentor -->  TypeError: $(...).modal is not a function
-    describe("When the user click on the eye icon of a bill", () => {
-      test.skip("Then it should display the proof of payment modal", async () => {
-        window.onNavigate(ROUTES_PATH.Bills);
-        await waitFor(() => {
-          screen.getAllByTestId("icon-eye");
-        });
+    describe("When click on eye-icon of a bill", () => {
+      test("Then the proof of payment modal is being displayed", async () => {
+        const modalBody = document.querySelector(".modal-body");
+        expect(modalBody.innerHTML.trim() == "").toBeTruthy();
+        $.fn.modal = jest.fn();
         const eye_icons = screen.getAllByTestId("icon-eye");
         userEvent.click(eye_icons[0]);
-        await waitFor(() => {
-          screen.getByRole("document");
-        });
-        expect(screen.getByRole("document")).toBeTruthy();
+        expect(!modalBody.innerHTML.trim() == "").toBeTruthy();
       });
     });
 
