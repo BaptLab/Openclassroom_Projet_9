@@ -14,7 +14,7 @@ import router from "../app/Router.js";
 jest.mock("../app/store", () => mockStore);
 
 //Va sur la page employee avec data mockée
-function setEmployeePage() {
+export function setEmployeePage() {
   Object.defineProperty(window, "localStorage", { value: localStorageMock });
   window.localStorage.setItem(
     "user",
